@@ -11,7 +11,7 @@ Recommended installation is using [Composer], if you do not have [Composer] what
 In the root of your project execute the following:
 
 ```sh
-$ composer require klauke-enterprises/proxmoxve ~5.0.0
+$ composer require mean-cj/proxmoxve 
 ```
 
 Or add this to your `composer.json` file:
@@ -19,7 +19,7 @@ Or add this to your `composer.json` file:
 ```json
 {
     "require": {
-        "klauke-enterprises/proxmoxve": "~5.0.0"
+        "mean-cj/proxmoxve": "master"
     }
 }
 ```
@@ -44,7 +44,7 @@ use ProxmoxVE\Proxmox;
 
 // Then simply pass your credentials when creating the API client object.
 $proxmox = new Proxmox(
-    "felix@klauke-enterprises.com!myTokenId", // Your API Token Id
+    "felix@mean-cj.com!myTokenId", // Your API Token Id
     "9bb6dea8-b41b-479d-806f-cfd86f983f67" // Your API Token Secret
 );
 

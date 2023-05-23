@@ -57,6 +57,11 @@ class Proxmox
      */
     private $port;
 
+    /**
+     * @var mixed
+     */
+    private $response;
+
 
     /**
      * Constructor.
@@ -146,6 +151,8 @@ class Proxmox
      */
     private function processHttpResponse($response)
     {
+        $this->response = $response;
+
         if ($response === null) {
             return null;
         }
@@ -453,5 +460,16 @@ class Proxmox
     public function getVersion()
     {
         return $this->get('/version');
+    }
+
+
+    /**
+     * getResponse
+     *
+     * @return mixed
+     */
+    public function getResponse()
+    {
+        return $this->response;
     }
 }
