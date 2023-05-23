@@ -1,9 +1,9 @@
 {
-    "name": "klauke-enterprises/proxmoxve",
+    "name": "mean-cj/proxmoxve",
     "type": "library",
     "description": "A simple PHP 5.5+ Proxmox API client.",
     "keywords": ["Proxmox", "API", "KVM", "OpenVZ", "Virtualization"],
-    "homepage": "https://github.com/klauke-enterprises/ProxmoxVE",
+    "homepage": "https://github.com/mean-cj/ProxmoxVE",
     "license": "MIT",
     "version": "v5.1.0",
     "authors": [
@@ -19,14 +19,14 @@
         },
         {
             "name": "Klauke Enterprises",
-            "email": "felix@klauke-enterprises.com",
+            "email": "felix@mean-cj.com",
             "role": "Developer"
         }
     ],
 
     "support": {
-        "issues": "https://github.com/klauke-enterprises/ProxmoxVE/issues",
-        "source": "https://github.com/klauke-enterprises/ProxmoxVE"
+        "issues": "https://github.com/mean-cj/ProxmoxVE/issues",
+        "source": "https://github.com/mean-cj/ProxmoxVE"
     },
 
     "require": {
