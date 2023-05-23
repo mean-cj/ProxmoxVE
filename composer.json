@@ -28,7 +28,11 @@
     "require": {
         "php": ">=5.5.0",
         "lib-curl": "*",
+<<<<<<< HEAD
         "guzzlehttp/guzzle": "^7.0.1"
+=======
+        "guzzlehttp/guzzle": "~6.0 || ~7.0"
+>>>>>>> upstream/master
     },
 
     "require-dev": {

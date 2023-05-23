@@ -14,6 +14,7 @@ use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Psr7\Request;
 
 use ProxmoxVE\Exception\AuthenticationException;
+use ProxmoxVE\Exception\BadResponseException;
 
 /**
  * ProxmoxVE class. In order to interact with the proxmox server, the desired
@@ -109,7 +110,7 @@ class Proxmox
         $url = $this->getApiUrl() . $actionPath;
 
         $cookies = CookieJar::fromArray([
-            'PVEAuthCookie' => $this->authToken->getTicket(),
+            $this->getCookieName() => $this->authToken->getTicket(),
         ], $this->credentials->getHostname());
 
         switch ($method) {
@@ -154,6 +155,10 @@ class Proxmox
             return null;
         }
 
+        if ($response->getStatusCode() >= 400) {
+            throw new BadResponseException($response->getReasonPhrase());
+        }
+
         switch ($this->fakeType) {
             case 'pngb64':
                 $base64 = base64_encode($response->getBody());
@@ -164,6 +169,23 @@ class Proxmox
             default:
                 return $response->getBody()->__toString();
         }
+    }
+
+
+    /**
+     * Returns the name of the cookie that should be used to authenticate requests.
+     *
+     * @return string The required cookie for the system being used
+     */
+    private function getCookieName()
+    {
+        switch ($this->credentials->getSystem()) {
+            default:
+            case 'pve': $cookiename = 'PVEAuthCookie'; break;
+            case 'pmg': $cookiename = 'PMGAuthCookie'; break;
+        }
+
+        return $cookiename;
     }
 
 
@@ -204,7 +226,7 @@ class Proxmox
         $json = json_decode($response->getBody(), true);
 
         if (!$json['data']) {
-            $error = 'Can not login using credentials: ' . $this->credentials;
+            $error = 'Can not login using the provided credentials';
             throw new AuthenticationException($error);
         }
 
