@@ -10,11 +10,6 @@
 namespace ProxmoxVE;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Cookie\CookieJar;
-use GuzzleHttp\Psr7\Request;
-
-use ProxmoxVE\Exception\AuthenticationException;
-use ProxmoxVE\Exception\BadResponseException;
 
 /**
  * ProxmoxVE class. In order to interact with the proxmox server, the desired
@@ -28,14 +23,6 @@ class Proxmox
      * @var \GuzzleHttp\Client()
      */
     private $httpClient;
-
-    /**
-     * Contains the proxmox server authentication data.
-     *
-     * @var \ProxmoxVE\Credentials
-     */
-    private $credentials;
-
 
     /**
      * Holds the response type used to requests the API, possible values are
@@ -53,15 +40,22 @@ class Proxmox
      * @var string
      */
     private $fakeType;
-
-
     /**
-     * Stores the ProxmoxVE user session such as ticket, username and csrf
-     * prevention token, are all in there.
-     *
-     * @var \ProxmoxVE\AuthToken
+     * @var string
      */
-    private $authToken;
+    private $tokenId;
+    /**
+     * @var string
+     */
+    private $tokenSecret;
+    /**
+     * @var string
+     */
+    private $hostname;
+    /**
+     * @var int
+     */
+    private $port;
 
 
     /**
@@ -78,16 +72,19 @@ class Proxmox
      *                                                      are not valid.
      */
     public function __construct(
-        $credentials,
+        $tokenId = "",
+        $tokenSecret = "",
+        $hostname = "",
+        $port = 8006,
         $responseType = 'array',
         $httpClient = null
     ) {
+        $this->tokenId = $tokenId;
+        $this->tokenSecret = $tokenSecret;
         $this->setHttpClient($httpClient);
-
-        // Set credentials and login to the Proxmox server.
-        $this->setCredentials($credentials);
-
         $this->setResponseType($responseType);
+        $this->hostname = $hostname;
+        $this->port = $port;
     }
 
 
@@ -108,29 +105,23 @@ class Proxmox
     private function requestResource($actionPath, $params = [], $method = 'GET')
     {
         $url = $this->getApiUrl() . $actionPath;
-
-        $cookies = CookieJar::fromArray([
-            $this->getCookieName() => $this->authToken->getTicket(),
-        ], $this->credentials->getHostname());
-
+        $headers = [
+            "Authorization" => "PVEAPIToken=$this->tokenId=$this->tokenSecret"
+        ];
         switch ($method) {
             case 'GET':
                 return $this->httpClient->get($url, [
                     'verify' => false,
                     'http_errors' => false,
-                    'cookies' => $cookies,
+                    'headers' => $headers,
                     'query' => $params,
                 ]);
             case 'POST':
             case 'PUT':
             case 'DELETE':
-                $headers = [
-                    'CSRFPreventionToken' => $this->authToken->getCsrf(),
-                ];
                 return $this->httpClient->request($method, $url, [
                     'verify' => false,
                     'http_errors' => false,
-                    'cookies' => $cookies,
                     'headers' => $headers,
                     'form_params' => $params,
                 ]);
@@ -140,6 +131,10 @@ class Proxmox
         }
     }
 
+    public function getApiUrl()
+    {
+        return "https://{$this->hostname}:{$this->port}/api2/{$this->responseType}";
+    }
 
     /**
      * Parses the response to the desired return type.
@@ -153,10 +148,6 @@ class Proxmox
     {
         if ($response === null) {
             return null;
-        }
-
-        if ($response->getStatusCode() >= 400) {
-            throw new BadResponseException($response->getReasonPhrase());
         }
 
         switch ($this->fakeType) {
@@ -173,23 +164,6 @@ class Proxmox
 
 
     /**
-     * Returns the name of the cookie that should be used to authenticate requests.
-     *
-     * @return string The required cookie for the system being used
-     */
-    private function getCookieName()
-    {
-        switch ($this->credentials->getSystem()) {
-            default:
-            case 'pve': $cookiename = 'PVEAuthCookie'; break;
-            case 'pmg': $cookiename = 'PMGAuthCookie'; break;
-        }
-
-        return $cookiename;
-    }
-
-
-    /**
      * Sets the HTTP client to be used to send requests over the network, for
      * now Guzzle needs to be used.²
      *
@@ -199,75 +173,6 @@ class Proxmox
     {
         $this->httpClient = $httpClient ?: new Client();
     }
-
-
-    /**
-     * Attempts to login using set credentials, if succeeded will return the
-     * AuthToken used in all requests.
-     *
-     * @return \ProxmoxVE\AuthToken When successful login will return an
-     *                              instance of the AuthToken class.
-     *
-     * @throws \ProxmoxVE\Exception\AuthenticationException If login fails.
-     */
-    public function login()
-    {
-        $loginUrl = $this->credentials->getApiUrl() . '/json/access/ticket';
-        $response = $this->httpClient->post($loginUrl, [
-            'verify' => false,
-            'http_errors' => false,
-            'form_params' => [
-                'username' => $this->credentials->getUsername(),
-                'password' => $this->credentials->getPassword(),
-                'realm' => $this->credentials->getRealm(),
-            ],
-        ]);
-
-        $json = json_decode($response->getBody(), true);
-
-        if (!$json['data']) {
-            $error = 'Can not login using the provided credentials';
-            throw new AuthenticationException($error);
-        }
-
-        return new AuthToken(
-            $json['data']['CSRFPreventionToken'],
-            $json['data']['ticket'],
-            $json['data']['username']
-        );
-    }
-
-
-    /**
-     * Gets the Credentials object associated with this proxmox API instance.
-     *
-     * @return \ProxmoxVE\Credentials Object containing all proxmox data used to
-     *                                connect to the server.
-     */
-    public function getCredentials()
-    {
-        return $this->credentials;
-    }
-
-
-    /**
-     * Assign the passed Credentials object to the ProxmoxVE.
-     *
-     * @param object $credentials A custom object holding credentials or a
-     *                            Credentials object to assign.
-     *
-     * @throws \ProxmoxVE\Exception\AuthenticationException If can not login.
-     */
-    public function setCredentials($credentials)
-    {
-        if (!$credentials instanceof Credentials) {
-            $credentials = new Credentials($credentials);
-        }
-
-        $this->credentials = $credentials;
-        $this->authToken = $this->login();
-    }
-
 
     /**
      * Sets the response type that is going to be returned when doing requests.
@@ -421,22 +326,6 @@ class Proxmox
         $response = $this->requestResource($actionPath, $params, 'DELETE');
         return $this->processHttpResponse($response);
     }
-
-
-    // Later on below this line we'll move this logic to another place?
-
-
-    /**
-     * Returns the proxmox API URL where requests are sended.
-     * Sample value: https://my-proxmox:8006/api2/json
-     *
-     * @return string Proxmox API URL.
-     */
-    public function getApiUrl()
-    {
-        return $this->credentials->getApiUrl() . '/' . $this->responseType;
-    }
-
 
     /**
      * Retrieves the '/access' resource of the Proxmox API resources tree.
